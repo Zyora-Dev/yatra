@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Building2, Calculator, CarFront, ClipboardCheck, Clock3, Compass, Globe2, LoaderCircle, MapPin, Mountain, Navigation, Phone, Search, SlidersHorizontal, Sparkles, Star, Sun } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Building2, Calculator, CarFront, ClipboardCheck, Clock3, Compass, Globe2, LoaderCircle, MapPin, Mountain, Navigation, Phone, Search, SlidersHorizontal, Sparkles, Star, Sun, Utensils } from "lucide-react";
 import { AccountDialog } from "@/components/account-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,14 +19,15 @@ type Place = {
   photos?: { name: string; authorAttributions?: { displayName: string; uri?: string }[] }[];
   attributions?: { provider: string; providerUri?: string }[];
 };
-type Category = "sights" | "stays" | "spiritual" | "transport";
+type Category = "sights" | "stays" | "restaurants" | "spiritual" | "transport";
 const categories = [
   { id: "sights", label: "Discover", icon: Mountain },
   { id: "stays", label: "Stays", icon: Building2 },
+  { id: "restaurants", label: "Restaurants", icon: Utensils },
   { id: "spiritual", label: "Spiritual", icon: Sun },
   { id: "transport", label: "Getting around", icon: CarFront },
 ] as const;
-const headings = { sights: "Places worth a detour", stays: "Find your place to stay", spiritual: "A little space for the soul", transport: "Make your next move" };
+const headings = { sights: "Places worth a detour", stays: "Find your place to stay", restaurants: "Where to eat nearby", spiritual: "A little space for the soul", transport: "Make your next move" };
 const nameOf = (place: Place) => place.displayName?.text || "Unnamed place";
 
 async function travelRequest<Result>(path: string, payload: object, signal: AbortSignal): Promise<Result> {

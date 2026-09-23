@@ -35,6 +35,33 @@ class TravelTests(unittest.TestCase):
             self.assertEqual(self.client.post("/travel/nearby", json={"place_id": "country"}).status_code, 422)
             self.assertEqual(provider.call_count, 1)
 
+    def test_restaurant_search_and_details(self):
+        restaurant = {"id": "restaurant", "primaryType": "restaurant", "displayName": {"text": "Test restaurant"}}
+        with patch("travel.google", new=AsyncMock(side_effect=[self.destination, {"places": [restaurant]}])) as provider:
+            result = self.client.post("/travel/nearby", json={"place_id": "city", "category": "restaurants", "radius_km": 5})
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()["places"][0]["id"], "restaurant")
+            self.assertEqual(provider.call_args.args[2]["includedTypes"], ["restaurant"])
+            self.assertEqual(provider.call_args.args[2]["locationRestriction"]["circle"]["radius"], 5000)
+        detail = restaurant | {"internationalPhoneNumber": "+1 202-555-0100", "websiteUri": "https://example.com",
+                               "rating": 4.5, "userRatingCount": 12, "regularOpeningHours": {"weekdayDescriptions": ["Monday: 12:00-20:00"]}}
+        with patch("travel.google", new=AsyncMock(return_value=detail)) as provider:
+            result = self.client.post("/travel/details", json={"place_id": "restaurant"})
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()["regularOpeningHours"], detail["regularOpeningHours"])
+            self.assertEqual(result.json()["internationalPhoneNumber"], detail["internationalPhoneNumber"])
+            for field in ("internationalPhoneNumber", "websiteUri", "rating", "userRatingCount", "regularOpeningHours"):
+                self.assertIn(field, provider.call_args.args[1].split(","))
+
+    def test_restaurant_shortlist_uses_category(self):
+        restaurant = {"id": "restaurant"}
+        reply = {"choices": [{"message": {"content": '{"place_ids":["restaurant"]}'}}]}
+        with patch("travel.google", new=AsyncMock(side_effect=[self.destination, {"places": [restaurant]}])) as provider, patch("travel.azure_json", new=AsyncMock(return_value=reply)):
+            result = self.client.post("/travel/suggestions", json={"place_id": "city", "category": "restaurants", "preferences": "Local food"})
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()["places"][0]["id"], "restaurant")
+            self.assertEqual(provider.call_args.args[2]["includedTypes"], ["restaurant"])
+
     def test_provider_failure_is_sanitized(self):
         import httpx
         with patch("httpx.AsyncClient.request", new=AsyncMock(side_effect=httpx.ConnectError("secret detail"))):

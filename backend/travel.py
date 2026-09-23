@@ -18,6 +18,7 @@ router = APIRouter(prefix="/travel", tags=["travel"])
 categories = {
     "sights": ["tourist_attraction", "museum", "park"],
     "stays": ["hotel", "lodging"],
+    "restaurants": ["restaurant"],
     "spiritual": ["hindu_temple", "church", "mosque", "synagogue"],
     "transport": ["travel_agency", "car_rental", "taxi_stand"],
 }
@@ -53,7 +54,7 @@ class PlaceRequest(BaseModel):
 
 
 class NearbyRequest(PlaceRequest):
-    category: Literal["sights", "stays", "spiritual", "transport"] = "sights"
+    category: Literal["sights", "stays", "restaurants", "spiritual", "transport"] = "sights"
     radius_km: int = Field(default=10, ge=1, le=50)
 
 

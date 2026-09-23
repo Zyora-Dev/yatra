@@ -86,7 +86,7 @@ Next.js forwards `/api/travel/*` to `/travel/*`. POST requests require the same 
 | `POST /travel/suggestions` | Nearby input plus `preferences` (3-800 characters) | Up to four GPT-4.1-selected places from server-retrieved candidates |
 | `POST /travel/budget` | `place_id`, `days` (1-60), `nights` (0-59), `travellers` and `rooms` (1-30), `currency`, `style` | Approximate GPT-4.1 unit-cost ranges and deterministic group/per-person totals |
 
-Categories are `sights`, `stays`, `spiritual`, and `transport`. Radius is 1-50 km around the selected place's coordinates. Country and first-level administrative-area centres are rejected; choose a city, neighbourhood or landmark. Results are bounded, not exhaustive, and data availability varies by location.
+Categories are `sights`, `stays`, `restaurants`, `spiritual`, and `transport`. Restaurants use Google's restaurant type and the same available contact, website, hours, ratings and Maps details. Radius is 1-50 km around the selected place's coordinates. Country and first-level administrative-area centres are rejected; choose a city, neighbourhood or landmark. Results are bounded, not exhaustive, and data availability varies by location.
 
 Google fields are explicitly requested, provider URLs sanitized, and raw provider failures hidden. Photos display author attribution. Google content is not persistently stored. AI shortlist output is restricted to known candidate IDs; it cannot add place facts, prices or availability.
 

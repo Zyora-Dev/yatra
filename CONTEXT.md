@@ -9,6 +9,7 @@ Last updated: 2026-09-23
 - Theme: Travel & Tourism.
 
 ## Confirmed Direction
+- User requested restaurant details for a selected location. Add restaurant discovery to the existing worldwide category/radius search and sourced place-details flow; no menus, prices, availability or booking integration assumed.
 - User selected `https://github.com/Zyora-Dev/yatra.git` for the project commit and requested Render deployment preparation and guidance. Render is the confirmed hosting target; paid resource creation, public launch and local-data migration have not been performed or separately approved. The Blueprint's Singapore region and small paid compute plans are editable preparation defaults, not approved spending.
 - User approved Trip Together and requested a menu entry: account-based shared trips, private individual spending/pace/interests/must-have submissions, a shared compromise outline and a fairness check with one adjustment. Initial matching is deterministic; no new AI or data provider is required. Invite-based participation is approved for this feature; payments and booking remain excluded.
 - User approved the proposed trip feasibility feature: assess available time, spending and travel pace, highlight conflicts or unknowns, and offer one practical adjustment. Initial implementation reuses existing budget estimates with explicit user-entered timing; no new route, weather or accessibility provider is assumed approved or available.
