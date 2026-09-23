@@ -53,6 +53,35 @@ class TravelTests(unittest.TestCase):
             for field in ("internationalPhoneNumber", "websiteUri", "rating", "userRatingCount", "regularOpeningHours"):
                 self.assertIn(field, provider.call_args.args[1].split(","))
 
+    def test_region_destinations_filter_membership_and_duplicates(self):
+        country = {"types": ["country"], "longText": "India", "shortText": "IN"}
+        state = {"types": ["administrative_area_level_1"], "longText": "Kerala", "shortText": "KL"}
+        city = {"id": "city", "types": ["tourist_attraction"], "addressComponents": [country, state]}
+        outside = {"id": "outside", "types": ["locality"], "addressComponents": [country, {"types": ["administrative_area_level_1"], "longText": "Tamil Nadu"}]}
+        foreign = {"id": "foreign", "types": ["locality"], "addressComponents": [{"types": ["country"], "longText": "Other country"}, state]}
+        for region_type, expected_ids in (("country", ["city", "outside"]), ("administrative_area_level_1", ["city"])):
+            region = {"id": "region", "types": [region_type], "formattedAddress": "Kerala, India" if region_type != "country" else "India", "addressComponents": [country, state]}
+            with patch("travel.google", new=AsyncMock(side_effect=[region, {"places": [city, city, outside, foreign, region, {"id": "business", "types": ["travel_agency"], "addressComponents": [country, state]}]}])) as provider:
+                result = self.client.post("/travel/region-destinations", json={"place_id": "region"})
+                self.assertEqual(result.status_code, 200)
+                self.assertEqual([place["id"] for place in result.json()["places"]], expected_ids)
+                self.assertEqual(provider.call_args.args[0], "places:searchText")
+                self.assertEqual(provider.call_args.args[2]["textQuery"], "Tourist attractions in " + region["formattedAddress"])
+                self.assertEqual(provider.call_args.args[2]["includedType"], "tourist_attraction")
+                self.assertTrue(provider.call_args.args[2]["strictTypeFiltering"])
+                self.assertNotIn("locationRestriction", provider.call_args.args[2])
+
+    def test_region_invalid_incomplete_and_empty(self):
+        for region in ({"types": ["locality"]}, {"types": ["country"], "formattedAddress": "India"}):
+            with patch("travel.google", new=AsyncMock(return_value=region)) as provider:
+                self.assertEqual(self.client.post("/travel/region-destinations", json={"place_id": "region"}).status_code, 422)
+                self.assertEqual(provider.call_count, 1)
+        region = {"id": "region", "types": ["country"], "formattedAddress": "India", "addressComponents": [{"types": ["country"], "longText": "India"}]}
+        with patch("travel.google", new=AsyncMock(side_effect=[region, {}])):
+            result = self.client.post("/travel/region-destinations", json={"place_id": "region"})
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.json()["places"], [])
+
     def test_restaurant_shortlist_uses_category(self):
         restaurant = {"id": "restaurant"}
         reply = {"choices": [{"message": {"content": '{"place_ids":["restaurant"]}'}}]}

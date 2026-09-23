@@ -171,6 +171,44 @@ async def nearby(payload: NearbyRequest):
     return await get_nearby(payload)
 
 
+@router.post("/region-destinations", dependencies=dependencies)
+async def region_destinations(payload: PlaceRequest):
+    fields = summary_fields + ",addressComponents"
+    region = await google("places/" + payload.place_id, fields)
+    region_types = set(region.get("types", []))
+    if not region_types.intersection({"country", "administrative_area_level_1"}):
+        raise HTTPException(422, "Choose a country or state to browse destinations.")
+    required_types = ["country"]
+    if "administrative_area_level_1" in region_types:
+        required_types.append("administrative_area_level_1")
+
+    def component_names(place: dict, component_type: str) -> set[str]:
+        return {component[key].strip().casefold() for component in place.get("addressComponents", [])
+                if component_type in component.get("types", []) for key in ("longText", "shortText")
+                if isinstance(component.get(key), str) and component[key].strip()}
+
+    expected = {component_type: component_names(region, component_type) for component_type in required_types}
+    label = region.get("formattedAddress") or region.get("displayName", {}).get("text")
+    if not label or not all(expected.values()):
+        raise HTTPException(422, "Region details are incomplete. Search for a city by name.")
+    result = await google("places:searchText", ",".join("places." + field for field in fields.split(",")), {
+        "textQuery": "Tourist attractions in " + label, "pageSize": 20,
+        "includedType": "tourist_attraction", "strictTypeFiltering": True,
+    })
+    places = []
+    seen = {region.get("id")}
+    for place in result.get("places", []):
+        if not place.get("id") or place["id"] in seen:
+            continue
+        if not set(place.get("types", [])).intersection({"tourist_attraction", "locality", "postal_town"}):
+            continue
+        if not all(names.intersection(component_names(place, component_type)) for component_type, names in expected.items()):
+            continue
+        seen.add(place["id"])
+        places.append(clean_place(place))
+    return {"region": clean_place(region), "places": places}
+
+
 @router.post("/details", dependencies=dependencies)
 async def details(payload: PlaceRequest):
     return clean_place(await google("places/" + payload.place_id, detail_fields))

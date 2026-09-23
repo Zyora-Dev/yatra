@@ -80,13 +80,14 @@ Next.js forwards `/api/travel/*` to `/travel/*`. POST requests require the same 
 | Endpoint | Input | Result |
 | --- | --- | --- |
 | `POST /travel/destinations` | `query` (2-160 characters) | Up to five Google destination matches |
+| `POST /travel/region-destinations` | Country/state `place_id` | Region and up to 20 Google tourist attractions, filtered by country/state address components; no radius |
 | `POST /travel/nearby` | `place_id`, `category`, `radius_km` | Destination and up to 12 nearby places |
 | `POST /travel/details` | `place_id` | Available address, contact, website, hours and ratings |
 | `GET /travel/photo` | `name` (validated Google photo resource) | Redirect to a Google-hosted image; no API key exposed |
 | `POST /travel/suggestions` | Nearby input plus `preferences` (3-800 characters) | Up to four GPT-4.1-selected places from server-retrieved candidates |
 | `POST /travel/budget` | `place_id`, `days` (1-60), `nights` (0-59), `travellers` and `rooms` (1-30), `currency`, `style` | Approximate GPT-4.1 unit-cost ranges and deterministic group/per-person totals |
 
-Categories are `sights`, `stays`, `restaurants`, `spiritual`, and `transport`. Restaurants use Google's restaurant type and the same available contact, website, hours, ratings and Maps details. Radius is 1-50 km around the selected place's coordinates. Country and first-level administrative-area centres are rejected; choose a city, neighbourhood or landmark. Results are bounded, not exhaustive, and data availability varies by location.
+Categories are `sights`, `stays`, `restaurants`, `spiritual`, and `transport`. Restaurants use Google's restaurant type and the same available contact, website, hours, ratings and Maps details. Radius is 1-50 km around a selected city, neighbourhood or landmark. Country and first-level administrative-area selections use region discovery instead: attractions throughout the region without radius controls. The nearby endpoint still rejects regional centres. Region membership requires matching Google address components; missing components are excluded rather than guessing containment. Google text search is not an exhaustive geographic catalogue, so results can be sparse or empty. No country/state names are hardcoded. Selecting a regional attraction opens nearby discovery, and changing destination restores the region results.
 
 Google fields are explicitly requested, provider URLs sanitized, and raw provider failures hidden. Photos display author attribution. Google content is not persistently stored. AI shortlist output is restricted to known candidate IDs; it cannot add place facts, prices or availability.
 

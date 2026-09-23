@@ -29,6 +29,7 @@ const categories = [
 ] as const;
 const headings = { sights: "Places worth a detour", stays: "Find your place to stay", restaurants: "Where to eat nearby", spiritual: "A little space for the soul", transport: "Make your next move" };
 const nameOf = (place: Place) => place.displayName?.text || "Unnamed place";
+const isRegion = (place: Place) => place.types?.some((type) => type === "country" || type === "administrative_area_level_1");
 
 async function travelRequest<Result>(path: string, payload: object, signal: AbortSignal): Promise<Result> {
   const response = await fetch(`/api/travel/${path}`, {
@@ -187,6 +188,8 @@ export function DestinationWorkspace({ initialQuery }: { initialQuery: string })
   const [query, setQuery] = useState(initialQuery);
   const [candidates, setCandidates] = useState<Place[]>([]);
   const [destination, setDestination] = useState<Place | null>(null);
+  const [region, setRegion] = useState<Place | null>(null);
+  const [regionPlaces, setRegionPlaces] = useState<Place[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const [category, setCategory] = useState<Category>("sights");
   const [radius, setRadius] = useState(10);
@@ -219,6 +222,7 @@ export function DestinationWorkspace({ initialQuery }: { initialQuery: string })
   useEffect(() => () => { mainRequest.current?.abort(); detailRequest.current?.abort(); aiRequest.current?.abort(); }, []);
 
   async function loadNearby(place: Place, nextCategory = category, nextRadius = radius) {
+    if (isRegion(place)) { await loadRegion(place); return; }
     mainRequest.current?.abort(); aiRequest.current?.abort();
     const controller = new AbortController(); mainRequest.current = controller;
     setDestination(place); setCategory(nextCategory); setRadius(nextRadius); setLoading(true); setError(""); setPlaces([]); setAiPlaces(null); setAiError(""); setAiLoading(false);
@@ -240,6 +244,17 @@ export function DestinationWorkspace({ initialQuery }: { initialQuery: string })
     finally { if (!controller.signal.aborted) setDetailLoading(false); }
   }
 
+  async function loadRegion(place: Place) {
+    mainRequest.current?.abort(); aiRequest.current?.abort();
+    const controller = new AbortController(); mainRequest.current = controller;
+    setDestination(null); setRegion(place); setRegionPlaces([]); setLoading(true); setError(""); setPlaces([]); setAiPlaces(null); setAiError(""); setAiLoading(false);
+    try {
+      const data = await travelRequest<{ region: Place; places: Place[] }>("region-destinations", { place_id: place.id }, controller.signal);
+      if (!controller.signal.aborted) { setRegion(data.region); setRegionPlaces(data.places); }
+    } catch (failure) { if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Destinations unavailable."); }
+    finally { if (!controller.signal.aborted) setLoading(false); }
+  }
+
   async function suggest() {
     if (!destination) return;
     aiRequest.current?.abort();
@@ -257,11 +272,13 @@ export function DestinationWorkspace({ initialQuery }: { initialQuery: string })
     setDestination(null); setPlaces([]); setError(""); setLoading(false); setAiLoading(false); setAiPlaces(null);
   }
 
+  const selection = region ? regionPlaces : candidates;
+
   return <div className="destination-workspace">
     <a className="skip-link" href="#live-results">Skip to results</a>
     <header className="workspace-header"><div className="workspace-shell workspace-header-inner">
       <Link href="/" className="wordmark" aria-label="Yatra home"><span className="brand-icon"><Compass /></span>yatra<span className="brand-dot">.</span></Link>
-      <form className="workspace-search" onSubmit={(event) => { event.preventDefault(); if (query.trim().length >= 2) { if (query.trim() === initialQuery) { changeDestination(); setLoading(true); setRetry(retry + 1); } else router.push(`/explore?q=${encodeURIComponent(query.trim())}`); } }}><Search size={18} /><input aria-label="Search destinations worldwide" placeholder="A city, a landmark, somewhere new..." value={query} minLength={2} maxLength={160} required onChange={(event) => setQuery(event.target.value)} /><Button size="icon" aria-label="Search destinations" type="submit"><ArrowRight size={18} /></Button></form>
+      <form className="workspace-search" onSubmit={(event) => { event.preventDefault(); if (query.trim().length >= 2) { changeDestination(); setRegion(null); setRegionPlaces([]); setLoading(true); if (query.trim() === initialQuery) { setRetry(retry + 1); } else router.push(`/explore?q=${encodeURIComponent(query.trim())}`); } }}><Search size={18} /><input aria-label="Search destinations worldwide" placeholder="A city, a landmark, somewhere new..." value={query} minLength={2} maxLength={160} required onChange={(event) => setQuery(event.target.value)} /><Button size="icon" aria-label="Search destinations" type="submit"><ArrowRight size={18} /></Button></form>
       <AccountDialog />
     </div></header>
     <main className="workspace-shell">
@@ -269,16 +286,16 @@ export function DestinationWorkspace({ initialQuery }: { initialQuery: string })
       {destination ? <section className="destination-banner">
         <Photo key={destination.id} place={destination} priority />
         <div className="destination-banner-copy"><span className="eyebrow">YOUR NEXT CHAPTER</span><h1>{nameOf(destination)}</h1><p><MapPin size={17} />{destination.formattedAddress}</p><div className="destination-banner-actions"><Button onClick={changeDestination} variant="secondary"><Navigation size={15} /> Change destination</Button>{destination.googleMapsUri && <Button variant="secondary" asChild><a href={destination.googleMapsUri} target="_blank" rel="noreferrer">Google Maps <ArrowUpRight size={15} /></a></Button>}</div></div>
-      </section> : <section className="destination-intro"><span className="eyebrow">FOLLOW YOUR CURIOSITY</span><h1>{initialQuery ? `Find your ${initialQuery}.` : "Where are we heading?"}</h1><p>{initialQuery ? "Choose your destination" : "Cities, landmarks and escapes around the world"}</p></section>}
+      </section> : <section className="destination-intro"><span className="eyebrow">FOLLOW YOUR CURIOSITY</span><h1>{region ? `Destinations in ${nameOf(region)}` : initialQuery ? `Find your ${initialQuery}.` : "Where are we heading?"}</h1><p>{region ? "Landmarks and places to explore" : initialQuery ? "Choose your destination" : "Cities, landmarks and escapes around the world"}</p>{region && <Button variant="ghost" onClick={() => { changeDestination(); setRegion(null); setRegionPlaces([]); }}><ArrowLeft size={16} />Back to search results</Button>}</section>}
 
       <div className={destination ? "destination-layout" : "destination-selection"}>
         <section id="live-results" className="live-results" aria-busy={loading}>
           {destination && <><Tabs value={category} onValueChange={(value) => loadNearby(destination, value as Category)}><TabsList className="destination-tabs">{categories.map((item) => <TabsTrigger value={item.id} key={item.id}><item.icon size={17} />{item.label}</TabsTrigger>)}</TabsList></Tabs>
             <div className="results-heading"><div><span className="eyebrow">{categories.find((item) => item.id === category)?.label}</span><h2>{headings[category]}</h2></div><label className="radius-control"><SlidersHorizontal size={16} /><span className="sr-only">Search radius</span><select aria-label="Search radius" value={radius} onChange={(event) => loadNearby(destination, category, Number(event.target.value))}>{[2, 5, 10, 25, 50].map((distance) => <option key={distance} value={distance}>{distance} km</option>)}</select></label></div>
             <div className="results-meta"><span>{loading ? "Finding nearby places..." : `${places.length} places returned`}</span><span>Within {radius} km of the selected location</span></div></>}
-          {error && <div className="workspace-error" role="alert"><p>{error}</p><Button variant="outline" onClick={() => { if (destination) loadNearby(destination); else { setError(""); setLoading(true); setRetry(retry + 1); } }}>Try again</Button>{destination && <Button variant="ghost" onClick={changeDestination}>Choose another destination</Button>}</div>}
-          {loading ? <div className="live-place-grid" role="status" aria-label="Loading places">{[0, 1, 2, 3].map((item) => <div key={item} className="place-skeleton"><div /><span /><span /></div>)}</div> : !error && <div className="live-place-grid">{(destination ? places : candidates).map((place, index) => <PlaceCard key={place.id} place={place} index={index} onSelect={() => destination ? openDetails(place) : loadNearby(place)} />)}</div>}
-          {!loading && !error && !(destination ? places : candidates).length && <div className="destination-empty"><Compass size={38} /><h2>{initialQuery ? "No places found this time" : "Your next journey starts here"}</h2><p>{destination ? "Try another category or a wider radius." : "Search for a city or landmark, including its country for a closer match."}</p></div>}
+          {error && <div className="workspace-error" role="alert"><p>{error}</p><Button variant="outline" onClick={() => { if (destination) loadNearby(destination); else if (region) loadRegion(region); else { setError(""); setLoading(true); setRetry(retry + 1); } }}>Try again</Button>{destination && <Button variant="ghost" onClick={changeDestination}>Choose another destination</Button>}</div>}
+          {loading ? <div className="live-place-grid" role="status" aria-label="Loading places">{[0, 1, 2, 3].map((item) => <div key={item} className="place-skeleton"><div /><span /><span /></div>)}</div> : !error && <div className="live-place-grid">{(destination ? places : selection).map((place, index) => <PlaceCard key={place.id} place={place} index={index} onSelect={() => destination ? openDetails(place) : loadNearby(place)} />)}</div>}
+          {!loading && !error && !(destination ? places : selection).length && <div className="destination-empty"><Compass size={38} /><h2>{region && !destination ? "No destinations returned for this region" : initialQuery ? "No places found this time" : "Your next journey starts here"}</h2><p>{destination ? "Try another category or a wider radius." : "Search for a city or landmark, including its country for a closer match."}</p></div>}
           <div className="google-attribution"><span>Google Maps</span><p>Place information from Google Maps. Results are not exhaustive; details may change.</p></div>
         </section>
 
