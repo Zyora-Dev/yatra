@@ -1,0 +1,102 @@
+.together-workspace { --together-line: #ffffff35; --together-pink: #ffc0e1; min-height: 100dvh; color: #faf7ff; background: #111015; }
+.together-shell { width: min(1320px, calc(100% - 80px)); margin-inline: auto; }
+.together-header { background: #18131e; border-bottom: 1px solid var(--together-line); }
+.together-header > div { min-height: 88px; display: flex; align-items: center; gap: 32px; }
+.together-header nav { display: flex; gap: 28px; margin-left: auto; align-items: center; font-size: 14px; }
+.together-header nav a { display: flex; gap: 8px; align-items: center; min-height: 44px; }
+.together-header [aria-current] { color: var(--together-pink); }
+.together-heading { display: flex; justify-content: space-between; align-items: center; padding: 36px 0 30px; border-bottom: 1px solid var(--together-line); }
+.together-eyebrow { color: #f1d9ff; font-size: 12px; }
+.together-heading h1 { margin-top: 8px; font-size: 36px; line-height: 1.2; font-weight: 650; }
+.together-heading h1 span, .together-heading > svg { color: var(--together-pink); }
+.together-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 40px; padding: 30px 0 60px; }
+.together-sidebar { border-right: 1px solid var(--together-line); padding-right: 24px; }
+.together-content, .together-sidebar { min-width: 0; }
+.together-section-title { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.together-section-title h2 { font-size: 19px; font-weight: 600; }
+.together-section-title > span { font-size: 12px; margin-left: auto; }
+.together-sidebar .together-section-title { gap: 8px; }
+.together-sidebar .together-section-title h2 { font-size: 17px; }
+.together-workspace button { cursor: pointer; }
+.together-workspace button:disabled { cursor: wait; }
+.together-workspace [data-slot="button"] { min-height: 40px; height: auto; white-space: normal; background: #793cad; color: #fff; border: 1px solid #ac75d0; border-radius: 6px; }
+.together-workspace [data-slot="button"][data-variant="ghost"], .together-workspace [data-slot="button"][data-variant="outline"] { background: transparent; }
+.together-workspace [data-slot="button"]:hover { background: #643484; }
+.together-workspace label { display: grid; gap: 9px; font-size: 13px; line-height: 1.5; min-width: 0; }
+.together-workspace input:not([type="checkbox"]), .together-workspace select { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid #876998; border-radius: 5px; color: #fff; background: #201926; font-size: 14px; color-scheme: dark; }
+.together-workspace input::placeholder { color: #c4b5ce; }
+.together-workspace :is(input, select, button, a):focus-visible { outline: 2px solid #e3b4ff; outline-offset: 3px; }
+.together-workspace input[type="checkbox"] { width: 18px; height: 18px; accent-color: #b073e3; }
+.together-date { margin: 22px 0; }
+.together-trip-list { display: grid; gap: 5px; }
+.together-trip-list button { width: 100%; text-align: left; display: grid; gap: 8px; padding: 16px 12px; border-left: 2px solid transparent; }
+.together-trip-list button[aria-current], .together-trip-list button:hover { background: #2b1f33; border-left-color: #dda2ff; }
+.together-trip-list strong { font-size: 14px; overflow-wrap: anywhere; }
+.together-trip-list span { font-size: 13px; overflow-wrap: anywhere; }
+.together-trip-list small { font-size: 12px; color: #f0e4f5; }
+.together-tabs[data-slot="tabs-list"] { width: 100%; height: auto; min-height: 48px; border-bottom: 1px solid #80608f; padding: 0; gap: 14px; border-radius: 0; background: transparent; }
+.together-tabs [data-slot="tabs-trigger"] { color: #f9f0ff; background: transparent; border: 0; border-radius: 0; padding: 12px 4px; min-height: 48px; white-space: normal; font-size: 13px; }
+.together-tabs [data-state="active"] { color: #f5c7ff !important; background: transparent !important; box-shadow: inset 0 -2px #e0a1ff !important; }
+.together-form { padding: 26px 0; }
+.together-form > fieldset { display: grid; gap: 24px; }
+.together-form h2 { font-size: 23px; font-weight: 600; }
+.together-form h3, .together-invite h3 { font-size: 17px; font-weight: 600; }
+.together-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.together-form .together-section-title { margin: 0; }
+.together-form [type="submit"] { justify-self: start; }
+.together-note { font-size: 13px; line-height: 1.8; color: #eee5f4; overflow-wrap: anywhere; }
+.together-choices { display: flex; flex-wrap: wrap; gap: 18px 26px; }
+.together-choices legend { font-size: 14px; font-weight: 600; padding-bottom: 14px; }
+.together-choices label { display: flex; align-items: center; gap: 10px; text-transform: capitalize; min-height: 30px; }
+.together-trip-heading { display: flex; gap: 20px; justify-content: space-between; margin-bottom: 25px; align-items: flex-start; }
+.together-trip-heading h2 { font-size: 28px; font-weight: 600; line-height: 1.3; margin: 8px 0; overflow-wrap: anywhere; }
+.together-trip-heading p { font-size: 14px; display: flex; gap: 8px; align-items: center; overflow-wrap: anywhere; }
+.together-trip-heading p svg { flex-shrink: 0; }
+.together-tools { display: flex; gap: 8px; flex-shrink: 0; }
+.together-plan, .together-group { padding: 28px 0; }
+.together-group > h2 { font-size: 20px; font-weight: 600; }
+.together-status { padding: 5px 9px; border: 1px solid #d099bc; border-radius: 4px; color: #ffdcf0; }
+.together-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 20px 0 26px; }
+.together-summary p { font-size: 13px; line-height: 1.8; }
+.together-summary strong { display: block; font-size: 16px; margin-bottom: 8px; color: #f8cef0; }
+.together-days { border-top: 1px solid var(--together-line); }
+.together-day { padding: 22px 0; display: grid; grid-template-columns: 90px 1fr 1fr; gap: 18px; border-bottom: 1px solid var(--together-line); }
+.together-day h3 { font-size: 16px; font-weight: 600; }
+.together-slot { display: grid; gap: 8px; }
+.together-slot span, .together-slot small { font-size: 12px; color: #f2e4fa; }
+.together-slot strong { font-size: 15px; text-transform: capitalize; font-weight: 550; }
+.together-day > p { grid-column: 2 / -1; font-size: 12px; color: #f1d5ed; }
+.together-fairness { padding: 30px 0; }
+.together-fairness ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; }
+.together-fairness li > div { display: flex; gap: 12px; justify-content: space-between; font-size: 13px; }
+.together-fairness strong { overflow-wrap: anywhere; }
+.together-fairness span { flex-shrink: 0; }
+.together-fairness progress { display: block; width: 100%; height: 6px; margin: 12px 0; accent-color: #d3a0fb; }
+.together-fairness progress::-webkit-progress-bar { background: #3d2d47; border-radius: 3px; }
+.together-fairness progress::-webkit-progress-value { background: #d3a0fb; border-radius: 3px; }
+.together-fairness small { font-size: 12px; }
+.together-adjustment { border-left: 3px solid #ec9fca; padding-left: 20px; margin: 0 0 24px; }
+.together-adjustment h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--together-pink); }
+.together-adjustment p { font-size: 14px; line-height: 1.8; }
+.together-plan > .together-note { margin-bottom: 24px; }
+.together-members { margin: 20px 0 30px; }
+.together-members li { display: flex; justify-content: space-between; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--together-line); font-size: 13px; }
+.together-members li span:first-child { display: flex; gap: 10px; align-items: center; overflow-wrap: anywhere; min-width: 0; }
+.together-members svg { flex-shrink: 0; }
+.together-invite { padding: 0 0 28px; border-bottom: 1px solid var(--together-line); }
+.together-invite .together-note { margin: 14px 0 20px; }
+.together-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.together-code { margin-top: 20px; display: grid; grid-template-columns: 1fr 42px; gap: 12px; align-items: end; }
+.together-code small { grid-column: 1 / -1; font-size: 12px; }
+.together-empty { min-height: 240px; display: grid; align-content: center; justify-items: center; gap: 18px; text-align: center; padding: 30px; }
+.together-empty h2 { font-size: 23px; font-weight: 600; }
+.together-empty p { max-width: 480px; font-size: 14px; line-height: 1.8; }
+.together-notice { display: flex; align-items: center; gap: 10px; padding-top: 20px; font-size: 13px; color: #c9f6df; }
+.together-error { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; color: #ffd0dc; padding: 18px 0; font-size: 14px; }
+.together-welcome { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 48px; padding: 40px 0; align-items: center; }
+.together-welcome h2 { font-size: 25px; font-weight: 600; margin: 20px 0 12px; }
+.together-welcome p { line-height: 1.8; font-size: 14px; margin-bottom: 10px; }
+.together-welcome img { width: 100%; height: 240px; object-fit: cover; border-radius: 6px; }
+.together-welcome small { grid-column: 2; font-size: 11px; }
+@media (max-width: 900px) { .together-shell { width: calc(100% - 40px); } .together-layout { grid-template-columns: 200px minmax(0, 1fr); gap: 24px; } .together-fields, .together-summary, .together-fairness ul { grid-template-columns: 1fr; } .together-tabs { gap: 5px !important; } }
+@media (max-width: 640px) { .together-shell { width: calc(100% - 32px); } .together-header > div { gap: 12px; flex-wrap: wrap; padding-block: 14px; } .together-header nav { order: 3; width: 100%; justify-content: space-between; margin: 0; border-top: 1px solid var(--together-line); padding-top: 8px; } .together-header .header-signin { margin-left: auto; } .together-heading { padding: 26px 0; } .together-heading h1 { font-size: 29px; } .together-heading > svg { width: 28px; } .together-layout { grid-template-columns: 1fr; gap: 28px; } .together-sidebar { border-right: 0; padding: 0 0 24px; border-bottom: 1px solid var(--together-line); } .together-trip-list { max-height: 200px; overflow-y: auto; } .together-date { margin: 12px 0; } .together-fields { gap: 20px; } .together-trip-heading { flex-direction: column; gap: 12px; } .together-trip-heading h2 { font-size: 24px; } .together-tools { align-self: flex-end; } .together-tabs [data-slot="tabs-trigger"] { flex-direction: column; font-size: 12px; gap: 6px; } .together-day { grid-template-columns: 1fr 1fr; gap: 16px; } .together-day h3, .together-day > p { grid-column: 1 / -1; } .together-welcome { grid-template-columns: 1fr; gap: 24px; } .together-welcome small { grid-column: 1; } .together-welcome img { height: 190px; } .together-empty { padding: 24px 8px; } .together-plan .together-section-title h2 { font-size: 17px; } }

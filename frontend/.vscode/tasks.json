@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Yatra frontend preview",
+			"type": "shell",
+			"command": "npm run dev -- --hostname 127.0.0.1 --port 3000",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

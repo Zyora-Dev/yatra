@@ -1,0 +1,26 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Yatra backend",
+			"type": "shell",
+			"command": "/Users/redfoxhotels/yatra/.venv/bin/python",
+			"args": [
+				"-m",
+				"uvicorn",
+				"main:app",
+				"--app-dir",
+				"/Users/redfoxhotels/yatra/backend",
+				"--host",
+				"127.0.0.1",
+				"--port",
+				"8800",
+				"--reload",
+				"--reload-dir",
+				"/Users/redfoxhotels/yatra/backend"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}
