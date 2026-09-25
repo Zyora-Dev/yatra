@@ -20,7 +20,12 @@ categories = {
     "stays": ["hotel", "lodging"],
     "restaurants": ["restaurant"],
     "spiritual": ["hindu_temple", "church", "mosque", "synagogue"],
-    "transport": ["travel_agency", "car_rental", "taxi_stand"],
+    "transport": ["travel_agency", "car_rental", "taxi_stand", "train_station", "light_rail_station", "subway_station", "bus_station", "bus_stop"],
+}
+transport_types = {
+    "rail": ["train_station", "light_rail_station", "subway_station"],
+    "bus": ["bus_station", "bus_stop"],
+    "services": ["travel_agency", "car_rental", "taxi_stand"],
 }
 summary_fields = "id,displayName,formattedAddress,location,types,primaryType,googleMapsUri,photos,attributions,businessStatus"
 detail_fields = summary_fields + ",internationalPhoneNumber,websiteUri,regularOpeningHours,rating,userRatingCount"
@@ -32,6 +37,8 @@ def limit_requests(request: Request, response: Response):
     response.headers["Cache-Control"] = "no-store"
     now = time.monotonic()
     bucket = "ai" if request.url.path.endswith(("/suggestions", "/budget")) else "places"
+    if request.url.path.endswith("/routes"):
+        bucket = "routes"
     address = request.client.host if request.client else "unknown"
     identity = f"{bucket}:{address}"
     with request_lock:
@@ -40,7 +47,7 @@ def limit_requests(request: Request, response: Response):
                 requests[key].popleft()
             if not requests[key]:
                 del requests[key]
-        if len(requests[identity]) >= (8 if bucket == "ai" else 120):
+        if len(requests[identity]) >= {"ai": 8, "routes": 20, "places": 120}[bucket]:
             raise HTTPException(429, "Request limit reached. Please try again in five minutes.", headers={"Retry-After": "300"})
         requests[identity].append(now)
 
@@ -56,6 +63,18 @@ class PlaceRequest(BaseModel):
 class NearbyRequest(PlaceRequest):
     category: Literal["sights", "stays", "restaurants", "spiritual", "transport"] = "sights"
     radius_km: int = Field(default=10, ge=1, le=50)
+    transport_kind: Literal["all", "rail", "bus", "services"] = "all"
+
+
+class RouteRequest(PlaceRequest):
+    origin_place_id: str = Field(min_length=1, max_length=300, pattern=r"^[A-Za-z0-9_-]+$")
+    mode: Literal["DRIVE", "WALK", "TRANSIT"] = "DRIVE"
+
+    @model_validator(mode="after")
+    def different_places(self):
+        if self.origin_place_id == self.place_id:
+            raise ValueError("Choose different starting and arrival places.")
+        return self
 
 
 class SuggestionRequest(NearbyRequest):
@@ -149,7 +168,8 @@ async def get_nearby(payload: NearbyRequest) -> dict:
     if "location" not in destination:
         raise HTTPException(422, "This destination has no search coordinates. Choose another location.")
     result = await google("places:searchNearby", ",".join("places." + field for field in summary_fields.split(",")), {
-        "includedTypes": categories[payload.category], "maxResultCount": 12,
+        "includedTypes": transport_types[payload.transport_kind] if payload.category == "transport" and payload.transport_kind != "all" else categories[payload.category], "maxResultCount": 12,
+        **({"rankPreference": "DISTANCE"} if payload.category == "transport" else {}),
         "locationRestriction": {"circle": {"center": destination["location"], "radius": payload.radius_km * 1000}},
     })
     return {"destination": clean_place(destination), "places": [clean_place(place) for place in result.get("places", [])]}
@@ -169,6 +189,38 @@ async def destinations(payload: DestinationSearch):
 @router.post("/nearby", dependencies=dependencies)
 async def nearby(payload: NearbyRequest):
     return await get_nearby(payload)
+
+
+@router.post("/routes", dependencies=dependencies)
+async def routes(payload: RouteRequest):
+    key = os.getenv("GOOGLE_MAPS_API_KEY")
+    if not key:
+        raise HTTPException(503, "Routes are not configured.")
+    for place_id in (payload.origin_place_id, payload.place_id):
+        place = await google("places/" + place_id, "id,types")
+        if set(place.get("types", [])).intersection({"country", "administrative_area_level_1"}):
+            raise HTTPException(422, "Choose a city, station or specific place for both ends of the route.")
+    fields = ["routes.distanceMeters", "routes.duration", "routes.warnings", "routes.description",
+              "routes.localizedValues.distance", "routes.localizedValues.duration",
+              "routes.legs.steps.navigationInstruction", "routes.legs.steps.localizedValues",
+              "routes.legs.steps.travelMode", "routes.legs.steps.transitDetails"]
+    result = await provider_json("POST", "https://routes.googleapis.com/directions/v2:computeRoutes",
+                                 headers={"X-Goog-Api-Key": key, "X-Goog-FieldMask": ",".join(fields)},
+                                 json={"origin": {"placeId": payload.origin_place_id},
+                                       "destination": {"placeId": payload.place_id}, "travelMode": payload.mode,
+                                       "languageCode": "en", "units": "METRIC"})
+    route_results = result.get("routes", [])
+    for route in route_results:
+        for leg in route.get("legs", []):
+            for step in leg.get("steps", []):
+                transit = step.get("transitDetails", {})
+                line = transit.get("transitLine", {})
+                for field in ("uri", "iconUri"):
+                    if field in line:
+                        line[field] = safe_url(line[field])
+                for agency in line.get("agencies", []):
+                    agency["uri"] = safe_url(agency.get("uri"))
+    return {"routes": route_results}
 
 
 @router.post("/region-destinations", dependencies=dependencies)

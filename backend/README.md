@@ -55,11 +55,11 @@ The server binds to localhost for development. There is no email/WhatsApp owners
 
 ## Google API Keys
 
-- `backend/.env`: `GOOGLE_MAPS_API_KEY` for server-side Places requests. Keep this key private and restrict it to Places API (New).
+- `backend/.env`: `GOOGLE_MAPS_API_KEY` for server-side Places and Routes requests. Keep this key private and restrict it to Places API (New) and Routes API.
 - `frontend/.env.local`: `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` for the browser map. Use a separate key restricted to Maps JavaScript API and allowed website referrers. Public-prefixed values are visible in browser code.
 - Both files match existing Git ignore rules. Never commit or paste key values into chat.
-- Enable billing and the required APIs in Google Cloud: Places API (New) and Maps JavaScript API. Routes API is optional for later routing. Environment variables do not grant API access.
-- The current destination UI uses server-side Places calls and external Google Maps links. It does not use the optional browser key or an embedded Maps JavaScript canvas.
+- Enable billing and the required APIs in Google Cloud: Places API (New) and Routes API. Maps JavaScript API is only needed for a future embedded map. Environment variables do not grant API access; route computations incur provider usage charges and need quotas/spending alerts.
+- The current destination UI uses server-side Places/Routes calls, in-app route instructions and optional external Google Maps links. It does not use the optional browser key or an embedded Maps JavaScript canvas.
 
 ## Azure OpenAI Configuration
 
@@ -81,7 +81,8 @@ Next.js forwards `/api/travel/*` to `/travel/*`. POST requests require the same 
 | --- | --- | --- |
 | `POST /travel/destinations` | `query` (2-160 characters) | Up to five Google destination matches |
 | `POST /travel/region-destinations` | Country/state `place_id` | Region and up to 20 Google tourist attractions, filtered by country/state address components; no radius |
-| `POST /travel/nearby` | `place_id`, `category`, `radius_km` | Destination and up to 12 nearby places |
+| `POST /travel/nearby` | `place_id`, `category`, `radius_km`, optional `transport_kind` | Destination and up to 12 nearby places |
+| `POST /travel/routes` | `origin_place_id`, destination `place_id`, `mode` (`DRIVE`, `WALK`, `TRANSIT`; default `DRIVE`) | `{routes: [...]}` with localized distance/duration, warnings and leg steps; empty list when no route is found |
 | `POST /travel/details` | `place_id` | Available address, contact, website, hours and ratings |
 | `GET /travel/photo` | `name` (validated Google photo resource) | Redirect to a Google-hosted image; no API key exposed |
 | `POST /travel/suggestions` | Nearby input plus `preferences` (3-800 characters) | Up to four GPT-4.1-selected places from server-retrieved candidates |
@@ -89,11 +90,15 @@ Next.js forwards `/api/travel/*` to `/travel/*`. POST requests require the same 
 
 Categories are `sights`, `stays`, `restaurants`, `spiritual`, and `transport`. Restaurants use Google's restaurant type and the same available contact, website, hours, ratings and Maps details. Radius is 1-50 km around a selected city, neighbourhood or landmark. Country and first-level administrative-area selections use region discovery instead: attractions throughout the region without radius controls. The nearby endpoint still rejects regional centres. Region membership requires matching Google address components; missing components are excluded rather than guessing containment. Google text search is not an exhaustive geographic catalogue, so results can be sparse or empty. No country/state names are hardcoded. Selecting a regional attraction opens nearby discovery, and changing destination restores the region results.
 
+Transport filters are `all` (default), `rail` (train, light rail and subway stations), `bus` (stops and terminals), and `services` (agencies, car rentals and taxi stands). The filter only applies to the transport category; transport results are ranked by distance and limited to 12 within the selected radius. Suggestions use the same selected filter.
+
+Routes require distinct Google place IDs for specific places or cities; country/state endpoints are rejected. Yatra displays instructions inside its route dialog, including operator attribution and transit stops/times when supplied. Transit departure defaults to now; driving duration is estimated without live traffic. Provider coverage varies, particularly for transit. No embedded route map, navigation tracking, live vehicle locations, fares, guaranteed schedules or reservations are provided. Routes are computed on request, not saved. The server resolves both endpoints and calls Google Routes with an explicit field mask; raw provider errors and the API key are never returned.
+
 Google fields are explicitly requested, provider URLs sanitized, and raw provider failures hidden. Photos display author attribution. Google content is not persistently stored. AI shortlist output is restricted to known candidate IDs; it cannot add place facts, prices or availability.
 
 Budget estimates separately use GPT-4.1 with a Google-resolved destination and trip inputs. Validated finite, nonnegative low/high ranges cover stay per room/night, food per person/day, transport for the group/day and activities per person/trip. Totals use deterministic arithmetic. The planner suggests days minus one nights and one room per two travellers; both are adjustable. Styles are budget/comfort/premium; currencies are INR/USD/EUR/GBP/JPY/AED/SGD/AUD. Changing currency generates a new estimate, not an exchange-rate conversion. Estimates are approximate, not accurate/live prices or availability. Journey costs, visas, insurance, shopping and extra taxes are excluded from suggested ranges; journey costs can be entered manually. Editable midpoint amounts persist across planner tabs. Budget and shortlist requests share the AI throttle.
 
-Travel requests are limited per process and socket peer to 120 Places requests and 8 AI requests per five minutes. Photo requests count toward the Places limit. These limits are shared behind the local proxy, not production-ready distributed abuse or spending controls. Public deployment, API spending controls, provider-policy review and browser Maps access remain outside this local implementation.
+Travel requests are limited per process and socket peer to 120 Places requests, 20 route computations and 8 AI requests per five minutes. Photo requests count toward the Places limit. These limits are shared behind the local proxy, not production-ready distributed abuse or spending controls. Public deployment, API spending controls, provider-policy review and browser Maps access remain outside this local implementation.
 
 ## Trip Together
 

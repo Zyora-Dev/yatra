@@ -35,6 +35,60 @@ class TravelTests(unittest.TestCase):
             self.assertEqual(self.client.post("/travel/nearby", json={"place_id": "country"}).status_code, 422)
             self.assertEqual(provider.call_count, 1)
 
+    def test_transport_filters(self):
+        for kind, types in (("rail", ["train_station", "light_rail_station", "subway_station"]), ("bus", ["bus_station", "bus_stop"]), ("services", ["travel_agency", "car_rental", "taxi_stand"])):
+            with patch("travel.google", new=AsyncMock(side_effect=[self.destination, {}])) as provider:
+                result = self.client.post("/travel/nearby", json={"place_id": "city", "category": "transport", "transport_kind": kind})
+                self.assertEqual(result.status_code, 200)
+                self.assertEqual(provider.call_args.args[2]["includedTypes"], types)
+                self.assertEqual(provider.call_args.args[2]["rankPreference"], "DISTANCE")
+        self.assertEqual(self.client.post("/travel/nearby", json={"place_id": "city", "transport_kind": "invalid"}).status_code, 422)
+        with patch("travel.google", new=AsyncMock(side_effect=[self.destination, {}])) as provider:
+            self.client.post("/travel/nearby", json={"place_id": "city", "category": "transport"})
+            self.assertEqual(set(provider.call_args.args[2]["includedTypes"]), {"travel_agency", "car_rental", "taxi_stand", "train_station", "light_rail_station", "subway_station", "bus_station", "bus_stop"})
+
+    def test_routes_configuration_header_and_throttle(self):
+        payload = {"place_id": "arrival", "origin_place_id": "start"}
+        self.assertEqual(TestClient(app).post("/travel/routes", json=payload).status_code, 403)
+        with patch.dict("os.environ", {"GOOGLE_MAPS_API_KEY": ""}):
+            self.assertEqual(self.client.post("/travel/routes", json=payload).status_code, 503)
+        requests.clear()
+        with patch.dict("os.environ", {"GOOGLE_MAPS_API_KEY": "test-key"}), patch("travel.google", new=AsyncMock(return_value=self.destination)), patch("travel.provider_json", new=AsyncMock(return_value={})) as provider:
+            for attempt in range(20):
+                self.assertEqual(self.client.post("/travel/routes", json=payload).status_code, 200)
+            result = self.client.post("/travel/routes", json=payload)
+            self.assertEqual(result.status_code, 429)
+            self.assertEqual(result.headers["Retry-After"], "300")
+            self.assertEqual(provider.call_count, 20)
+            self.assertEqual(self.client.post("/travel/details", json={"place_id": "city"}).status_code, 200)
+
+    def test_routes_payload_empty_and_sanitization(self):
+        route = {"duration": "600s", "legs": [{"steps": [{"transitDetails": {"transitLine": {"agencies": [{"name": "Transit", "uri": "javascript:bad"}]}}}]}]}
+        for mode in ("DRIVE", "WALK", "TRANSIT"):
+            with patch.dict("os.environ", {"GOOGLE_MAPS_API_KEY": "test-key"}), patch("travel.google", new=AsyncMock(return_value=self.destination)), patch("travel.provider_json", new=AsyncMock(return_value={"routes": [route]})) as provider:
+                result = self.client.post("/travel/routes", json={"place_id": "arrival", "origin_place_id": "start", "mode": mode})
+                self.assertEqual(result.status_code, 200)
+                self.assertEqual(result.headers["cache-control"], "no-store")
+                self.assertEqual(provider.call_args.kwargs["json"]["origin"], {"placeId": "start"})
+                self.assertEqual(provider.call_args.kwargs["json"]["travelMode"], mode)
+                self.assertNotIn("*", provider.call_args.kwargs["headers"]["X-Goog-FieldMask"])
+                self.assertIsNone(result.json()["routes"][0]["legs"][0]["steps"][0]["transitDetails"]["transitLine"]["agencies"][0]["uri"])
+        with patch.dict("os.environ", {"GOOGLE_MAPS_API_KEY": "test-key"}), patch("travel.google", new=AsyncMock(return_value=self.destination)), patch("travel.provider_json", new=AsyncMock(return_value={})):
+            self.assertEqual(self.client.post("/travel/routes", json={"place_id": "arrival", "origin_place_id": "start"}).json(), {"routes": []})
+
+    def test_routes_validation_and_provider_failure(self):
+        import httpx
+        for payload in ({"place_id": "same", "origin_place_id": "same"}, {"place_id": "arrival", "origin_place_id": "../bad"}, {"place_id": "arrival", "origin_place_id": "start", "mode": "FLY"}):
+            self.assertEqual(self.client.post("/travel/routes", json=payload).status_code, 422)
+        payload = {"place_id": "arrival", "origin_place_id": "start"}
+        self.assertEqual(self.client.post("/travel/routes", json=payload, headers={"Origin": "https://evil.example"}).status_code, 403)
+        with patch.dict("os.environ", {"GOOGLE_MAPS_API_KEY": "test-key"}), patch("travel.google", new=AsyncMock(return_value={"types": ["country"]})):
+            self.assertEqual(self.client.post("/travel/routes", json=payload).status_code, 422)
+        with patch.dict("os.environ", {"GOOGLE_MAPS_API_KEY": "test-key"}), patch("travel.google", new=AsyncMock(return_value=self.destination)), patch("httpx.AsyncClient.request", new=AsyncMock(side_effect=httpx.ConnectError("secret detail"))):
+            result = self.client.post("/travel/routes", json=payload)
+            self.assertEqual(result.status_code, 502)
+            self.assertNotIn("secret detail", result.text)
+
     def test_restaurant_search_and_details(self):
         restaurant = {"id": "restaurant", "primaryType": "restaurant", "displayName": {"text": "Test restaurant"}}
         with patch("travel.google", new=AsyncMock(side_effect=[self.destination, {"places": [restaurant]}])) as provider:

@@ -9,6 +9,7 @@ Last updated: 2026-09-23
 - Theme: Travel & Tourism.
 
 ## Confirmed Direction
+- User approved nearby railway stations, bus stops/terminals and routes displayed inside Yatra. Extend Getting around worldwide; use Google Routes for driving, walking and available public-transit instructions between selected places. No live vehicle tracking, guaranteed schedules, fares, booking or payments. An embedded map is not part of this first route-results implementation.
 - Country- and state-level searches should show tourist attractions throughout the selected region without a radius filter or requiring a different destination. This is a worldwide rule, not specific to the user's Goa example. City and landmark searches retain nearby discovery; selecting a regional attraction can open its nearby places. Results remain sourced and non-exhaustive.
 - User requested restaurant details for a selected location. Add restaurant discovery to the existing worldwide category/radius search and sourced place-details flow; no menus, prices, availability or booking integration assumed.
 - User selected `https://github.com/Zyora-Dev/yatra.git` for the project commit and requested Render deployment preparation and guidance. Render is the confirmed hosting target; paid resource creation, public launch and local-data migration have not been performed or separately approved. The Blueprint's Singapore region and small paid compute plans are editable preparation defaults, not approved spending.
@@ -24,7 +25,7 @@ Last updated: 2026-09-23
 
 ## Discussed, Not Yet Individually Approved
 - Saved trips, account-linked favourites, itinerary export, and sharing. Basic registration/login is now approved below.
-- Maps, transport links, weather-aware replanning, and offline access.
+- Embedded maps, weather-aware replanning, and offline access. Transport discovery and in-app route results are now approved above.
 - Multilingual assistance, currency information, and international travel guidance.
 - Business listings, enquiries, business dashboards, and administration.
 - These are candidate capabilities from discussion, not an implementation mandate or completed functionality.

@@ -29,7 +29,7 @@ The frontend must be a **Node web service**, not a Static Site. Browsers call sa
 | API variable | Value |
 | --- | --- |
 | `TRUSTED_ORIGINS` | Exact frontend HTTPS origin; multiple origins comma-separated, **no spaces** or trailing slashes |
-| `GOOGLE_MAPS_API_KEY` | Server-side key restricted to Places API (New), with billing/API access enabled |
+| `GOOGLE_MAPS_API_KEY` | Server-side key restricted to Places API (New) and Routes API, with billing/API access enabled |
 | `AZURE_OPENAI_ENDPOINT` | Existing configured Azure OpenAI resource endpoint |
 | `AZURE_OPENAI_API_KEY` | Existing resource key |
 | `AZURE_OPENAI_DEPLOYMENT` | Exact existing GPT-4.1 deployment name, not an assumed model ID |

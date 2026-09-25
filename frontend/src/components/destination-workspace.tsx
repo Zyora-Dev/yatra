@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ArrowUpRight, Building2, Calculator, CarFront, ClipboardCheck, Clock3, Compass, Globe2, LoaderCircle, MapPin, Mountain, Navigation, Phone, Search, SlidersHorizontal, Sparkles, Star, Sun, Utensils } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Building2, BusFront, Calculator, CarFront, ClipboardCheck, Clock3, Compass, Footprints, Globe2, LoaderCircle, MapPin, Mountain, Navigation, Phone, Route, Search, SlidersHorizontal, Sparkles, Star, Sun, TrainFront, Utensils } from "lucide-react";
 import { AccountDialog } from "@/components/account-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -20,6 +20,13 @@ type Place = {
   attributions?: { provider: string; providerUri?: string }[];
 };
 type Category = "sights" | "stays" | "restaurants" | "spiritual" | "transport";
+type TransportKind = "all" | "rail" | "bus" | "services";
+const transportFilters = [
+  { id: "all", label: "All transport", icon: Navigation },
+  { id: "rail", label: "Railway stations", icon: TrainFront },
+  { id: "bus", label: "Bus stops", icon: BusFront },
+  { id: "services", label: "Travel services", icon: CarFront },
+] as const;
 const categories = [
   { id: "sights", label: "Discover", icon: Mountain },
   { id: "stays", label: "Stays", icon: Building2 },
@@ -65,6 +72,86 @@ function PlaceCard({ place, onSelect, index }: { place: Place; onSelect: () => v
       <Attribution place={place} />
     </div>
   </article>;
+}
+
+type RouteResult = {
+  description?: string;
+  localizedValues?: { distance?: { text: string }; duration?: { text: string } };
+  warnings?: string[];
+  legs?: { steps?: {
+    navigationInstruction?: { instructions?: string };
+    travelMode?: string;
+    localizedValues?: { distance?: { text: string }; staticDuration?: { text: string } };
+    transitDetails?: {
+      headsign?: string; stopCount?: number;
+      stopDetails?: { departureStop?: { name: string }; arrivalStop?: { name: string } };
+      localizedValues?: { departureTime?: { time?: { text: string }; timeZone?: string }; arrivalTime?: { time?: { text: string }; timeZone?: string } };
+      transitLine?: { name?: string; nameShort?: string; agencies?: { name: string; uri?: string }[] };
+    };
+  }[] }[];
+};
+
+function RoutePlanner({ target, initialOrigin }: { target: Place; initialOrigin: Place | null }) {
+  const [origin, setOrigin] = useState<Place | null>(initialOrigin?.id !== target.id ? initialOrigin : null);
+  const [query, setQuery] = useState("");
+  const [matches, setMatches] = useState<Place[] | null>(null);
+  const [mode, setMode] = useState<"DRIVE" | "WALK" | "TRANSIT">("DRIVE");
+  const [results, setResults] = useState<RouteResult[] | null>(null);
+  const [loading, setLoading] = useState<"search" | "route" | null>(null);
+  const [error, setError] = useState("");
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => request.current?.abort(), []);
+
+  function invalidate() {
+    request.current?.abort(); setLoading(null); setError(""); setResults(null);
+  }
+
+  async function searchOrigin() {
+    invalidate(); setMatches(null);
+    const controller = new AbortController(); request.current = controller; setLoading("search");
+    try {
+      const data = await travelRequest<{ places: Place[] }>("destinations", { query }, controller.signal);
+      if (!controller.signal.aborted) setMatches(data.places.filter((place) => !isRegion(place) && place.id !== target.id));
+    } catch (failure) { if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Starting places unavailable."); }
+    finally { if (!controller.signal.aborted) setLoading(null); }
+  }
+
+  async function findRoute() {
+    if (!origin) return;
+    invalidate();
+    const controller = new AbortController(); request.current = controller; setLoading("route");
+    try {
+      const data = await travelRequest<{ routes: RouteResult[] }>("routes", { origin_place_id: origin.id, place_id: target.id, mode }, controller.signal);
+      if (!controller.signal.aborted) setResults(data.routes);
+    } catch (failure) { if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Route unavailable."); }
+    finally { if (!controller.signal.aborted) setLoading(null); }
+  }
+
+  return <div className="route-planner">
+    <DialogHeader><DialogTitle>Plan your route</DialogTitle><DialogDescription>To {nameOf(target)}</DialogDescription></DialogHeader>
+    <div className="route-endpoint"><MapPin size={18} /><div><span>To</span><strong>{nameOf(target)}</strong><p>{target.formattedAddress}</p></div></div>
+    {origin ? <div className="route-endpoint"><Navigation size={18} /><div><span>From</span><strong>{nameOf(origin)}</strong><p>{origin.formattedAddress}</p><Attribution place={origin} /></div><Button variant="ghost" onClick={() => { invalidate(); setOrigin(null); setMatches(null); }}>Change</Button></div> : <form onSubmit={(event) => { event.preventDefault(); searchOrigin(); }}>
+      <label htmlFor="route-origin">Starting point</label><div className="route-origin-search"><input id="route-origin" placeholder="Station, hotel, city or address" required minLength={2} maxLength={160} value={query} onChange={(event) => { invalidate(); setQuery(event.target.value); setMatches(null); }} /><Button type="submit" size="icon" disabled={loading === "search"} aria-label="Search starting points">{loading === "search" ? <LoaderCircle className="animate-spin" /> : <Search size={18} />}</Button></div>
+      {matches && <div className="route-matches" aria-live="polite">{matches.length ? matches.map((place) => <button type="button" key={place.id} onClick={() => { invalidate(); setOrigin(place); setMatches(null); }}><strong>{nameOf(place)}</strong><span>{place.formattedAddress}</span></button>) : <p>No matching starting points. Try a specific address, station or city.</p>}<span className="route-attribution" translate="no">Google Maps</span></div>}
+    </form>}
+    <fieldset className="route-modes"><legend>Travel mode</legend>{([{ id: "DRIVE", label: "Drive", icon: CarFront }, { id: "WALK", label: "Walk", icon: Footprints }, { id: "TRANSIT", label: "Transit", icon: TrainFront }] as const).map((item) => <label key={item.id}><input type="radio" name="route-mode" value={item.id} checked={mode === item.id} onChange={() => { invalidate(); setMode(item.id); }} /><span><item.icon size={17} />{item.label}</span></label>)}</fieldset>
+    <Button className="route-submit" onClick={findRoute} disabled={!origin || Boolean(loading)}>{loading === "route" ? <LoaderCircle className="animate-spin" size={18} /> : <Route size={18} />}{loading === "route" ? "Finding route..." : error ? "Try again" : "Find route"}</Button>
+    {loading && <p role="status" className="source-note">{loading === "search" ? "Searching starting points..." : "Calculating your journey..."}</p>}
+    {error && <p className="workspace-error" role="alert">{error}</p>}
+    {results && <div className="route-results" aria-live="polite">{results.length ? results.map((route, routeIndex) => <section key={routeIndex}>
+      <h3>{route.description || "Your route"}</h3><div className="route-summary"><span><Route size={17} />{route.localizedValues?.distance?.text || "Distance unavailable"}</span><span><Clock3 size={17} />{route.localizedValues?.duration?.text || "Duration unavailable"}</span></div>
+      {route.warnings?.map((warning, index) => <p className="workspace-error" key={index}>{warning}</p>)}
+      <ol className="route-steps">{route.legs?.flatMap((leg) => leg.steps || []).map((step, index) => {
+        const transit = step.transitDetails;
+        return <li key={index}><span className="route-step-number">{index + 1}</span><div><h4>{step.navigationInstruction?.instructions || (transit ? transit.transitLine?.name || "Public transit" : step.travelMode === "WALK" ? "Walk" : "Continue")}</h4>
+          <p>{[step.localizedValues?.distance?.text, step.localizedValues?.staticDuration?.text].filter(Boolean).join(" · ")}</p>
+          {transit && <div className="route-transit">{transit.transitLine?.nameShort && <strong>{transit.transitLine.nameShort}</strong>}{transit.headsign && <p>Towards {transit.headsign}</p>}<p>{transit.stopDetails?.departureStop?.name || "Departure stop unavailable"} → {transit.stopDetails?.arrivalStop?.name || "Arrival stop unavailable"}</p>{transit.stopCount !== undefined && <p>{transit.stopCount} stops</p>}{(["departureTime", "arrivalTime"] as const).map((key) => { const time = transit.localizedValues?.[key]; return time?.time?.text && <p key={key}>{key === "departureTime" ? "Departs" : "Arrives"} {time.time.text} {time.timeZone && `(${time.timeZone})`}</p>; })}{transit.transitLine?.agencies?.map((agency, agencyIndex) => <p key={agencyIndex}>{agency.uri ? <a href={agency.uri} target="_blank" rel="noreferrer">{agency.name}<ArrowUpRight size={13} /></a> : agency.name}</p>)}</div>}
+        </div></li>;
+      })}</ol>
+    </section>) : <p>No route returned for this journey and travel mode. Try another mode or starting point.</p>}<span className="route-attribution" translate="no">Google Maps</span></div>}
+    <p className="source-note">{mode === "TRANSIT" ? "Departure: now. Transit coverage and schedules vary; confirm service with the operator. No live vehicle tracking." : mode === "WALK" ? "Walking routes may lack clear sidewalks or pedestrian paths. Check local conditions." : "Estimated driving time, without live traffic."} Routes are for planning, not turn-by-turn navigation.</p>
+    <Attribution place={target} /><span className="route-attribution" translate="no">Google Maps</span>
+  </div>;
 }
 
 type BudgetSuggestion = {
@@ -192,6 +279,8 @@ export function DestinationWorkspace({ initialQuery }: { initialQuery: string })
   const [regionPlaces, setRegionPlaces] = useState<Place[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const [category, setCategory] = useState<Category>("sights");
+  const [transportKind, setTransportKind] = useState<TransportKind>("all");
+  const [routeTarget, setRouteTarget] = useState<Place | null>(null);
   const [radius, setRadius] = useState(10);
   const [loading, setLoading] = useState(Boolean(initialQuery));
   const [error, setError] = useState("");
@@ -221,13 +310,14 @@ export function DestinationWorkspace({ initialQuery }: { initialQuery: string })
 
   useEffect(() => () => { mainRequest.current?.abort(); detailRequest.current?.abort(); aiRequest.current?.abort(); }, []);
 
-  async function loadNearby(place: Place, nextCategory = category, nextRadius = radius) {
+  async function loadNearby(place: Place, nextCategory = category, nextRadius = radius, nextTransportKind = transportKind) {
     if (isRegion(place)) { await loadRegion(place); return; }
     mainRequest.current?.abort(); aiRequest.current?.abort();
     const controller = new AbortController(); mainRequest.current = controller;
     setDestination(place); setCategory(nextCategory); setRadius(nextRadius); setLoading(true); setError(""); setPlaces([]); setAiPlaces(null); setAiError(""); setAiLoading(false);
+    setTransportKind(nextTransportKind); setRouteTarget(null);
     try {
-      const data = await travelRequest<{ destination: Place; places: Place[] }>("nearby", { place_id: place.id, category: nextCategory, radius_km: nextRadius }, controller.signal);
+      const data = await travelRequest<{ destination: Place; places: Place[] }>("nearby", { place_id: place.id, category: nextCategory, radius_km: nextRadius, transport_kind: nextTransportKind }, controller.signal);
       if (!controller.signal.aborted) { setDestination(data.destination); setPlaces(data.places); }
     } catch (failure) { if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Places unavailable."); }
     finally { if (!controller.signal.aborted) setLoading(false); }
@@ -261,7 +351,7 @@ export function DestinationWorkspace({ initialQuery }: { initialQuery: string })
     const controller = new AbortController(); aiRequest.current = controller;
     setAiLoading(true); setAiError(""); setAiPlaces(null);
     try {
-      const data = await travelRequest<{ places: Place[] }>("suggestions", { place_id: destination.id, category, radius_km: radius, preferences }, controller.signal);
+      const data = await travelRequest<{ places: Place[] }>("suggestions", { place_id: destination.id, category, radius_km: radius, transport_kind: transportKind, preferences }, controller.signal);
       if (!controller.signal.aborted) setAiPlaces(data.places);
     } catch (failure) { if (!controller.signal.aborted) setAiError(failure instanceof Error ? failure.message : "Suggestions unavailable."); }
     finally { if (!controller.signal.aborted) setAiLoading(false); }
@@ -269,6 +359,7 @@ export function DestinationWorkspace({ initialQuery }: { initialQuery: string })
 
   function changeDestination() {
     mainRequest.current?.abort(); aiRequest.current?.abort();
+    setRouteTarget(null);
     setDestination(null); setPlaces([]); setError(""); setLoading(false); setAiLoading(false); setAiPlaces(null);
   }
 
@@ -292,6 +383,7 @@ export function DestinationWorkspace({ initialQuery }: { initialQuery: string })
         <section id="live-results" className="live-results" aria-busy={loading}>
           {destination && <><Tabs value={category} onValueChange={(value) => loadNearby(destination, value as Category)}><TabsList className="destination-tabs">{categories.map((item) => <TabsTrigger value={item.id} key={item.id}><item.icon size={17} />{item.label}</TabsTrigger>)}</TabsList></Tabs>
             <div className="results-heading"><div><span className="eyebrow">{categories.find((item) => item.id === category)?.label}</span><h2>{headings[category]}</h2></div><label className="radius-control"><SlidersHorizontal size={16} /><span className="sr-only">Search radius</span><select aria-label="Search radius" value={radius} onChange={(event) => loadNearby(destination, category, Number(event.target.value))}>{[2, 5, 10, 25, 50].map((distance) => <option key={distance} value={distance}>{distance} km</option>)}</select></label></div>
+            {category === "transport" && <div className="transport-controls"><fieldset className="transport-filters"><legend className="sr-only">Transport type</legend>{transportFilters.map((item) => <label key={item.id}><input type="radio" name="transport-kind" checked={transportKind === item.id} onChange={() => loadNearby(destination, category, radius, item.id)} /><span><item.icon size={16} />{item.label}</span></label>)}</fieldset><Button variant="outline" onClick={() => setRouteTarget(destination)}><Route size={16} />Plan route here</Button></div>}
             <div className="results-meta"><span>{loading ? "Finding nearby places..." : `${places.length} places returned`}</span><span>Within {radius} km of the selected location</span></div></>}
           {error && <div className="workspace-error" role="alert"><p>{error}</p><Button variant="outline" onClick={() => { if (destination) loadNearby(destination); else if (region) loadRegion(region); else { setError(""); setLoading(true); setRetry(retry + 1); } }}>Try again</Button>{destination && <Button variant="ghost" onClick={changeDestination}>Choose another destination</Button>}</div>}
           {loading ? <div className="live-place-grid" role="status" aria-label="Loading places">{[0, 1, 2, 3].map((item) => <div key={item} className="place-skeleton"><div /><span /><span /></div>)}</div> : !error && <div className="live-place-grid">{(destination ? places : selection).map((place, index) => <PlaceCard key={place.id} place={place} index={index} onSelect={() => destination ? openDetails(place) : loadNearby(place)} />)}</div>}
@@ -312,6 +404,8 @@ export function DestinationWorkspace({ initialQuery }: { initialQuery: string })
     <Dialog open={Boolean(detail)} onOpenChange={(open) => { if (!open) { detailRequest.current?.abort(); setDetail(null); } }}><DialogContent className="live-detail-dialog">{detail && <><Photo key={detail.id} place={detail} /><div className="live-detail-content"><DialogHeader><span className="eyebrow">{(detail.primaryType || "Place details").replaceAll("_", " ")}</span><DialogTitle>{nameOf(detail)}</DialogTitle><DialogDescription>{detail.formattedAddress || "Address not supplied"}</DialogDescription></DialogHeader>
       {detailLoading ? <p className="detail-loading" role="status"><LoaderCircle className="animate-spin" size={18} /> Loading contact details...</p> : detailError ? <div role="alert" className="workspace-error">{detailError}<Button variant="outline" onClick={() => openDetails(detail)}>Retry details</Button></div> : <><div className="detail-facts">{detail.rating !== undefined && <span><Star size={17} />{detail.rating} <small>({detail.userRatingCount ?? 0} Google ratings)</small></span>}{detail.businessStatus && <span>{detail.businessStatus.replaceAll("_", " ")}</span>}</div><div className="detail-links">{detail.internationalPhoneNumber ? <Button variant="outline" asChild><a href={`tel:${detail.internationalPhoneNumber.replace(/[^+\d]/g, "")}`}><Phone size={16} />{detail.internationalPhoneNumber}</a></Button> : <p>Phone not supplied</p>}{detail.websiteUri ? <Button variant="outline" asChild><a href={detail.websiteUri} target="_blank" rel="noreferrer"><Globe2 size={16} />Website<ArrowUpRight size={14} /></a></Button> : <p>Website not supplied</p>}</div><div className="opening-hours"><h3>Opening hours</h3>{detail.regularOpeningHours?.weekdayDescriptions?.length ? <ul>{detail.regularOpeningHours.weekdayDescriptions.map((day) => <li key={day}>{day}</li>)}</ul> : <p>Hours not supplied by Google.</p>}</div></>}
       {detail.googleMapsUri && <Button asChild className="map-link"><a href={detail.googleMapsUri} target="_blank" rel="noreferrer"><MapPin size={16} /> View on Google Maps <ArrowUpRight size={16} /></a></Button>}
+      {!isRegion(detail) && <Button className="nearby-detail" onClick={() => { detailRequest.current?.abort(); setRouteTarget(detail); setDetail(null); }}><Route size={16} />Route to this place</Button>}
       <Attribution place={detail} /><p className="source-note">Google Maps data. Confirm details directly before visiting. Hotel rates and availability are not provided.</p><Button variant="ghost" className="nearby-detail" onClick={() => { detailRequest.current?.abort(); setDetail(null); loadNearby(detail); }}><Navigation size={16} />Explore around this place<ArrowRight size={16} /></Button></div></>}</DialogContent></Dialog>
+    <Dialog open={Boolean(routeTarget)} onOpenChange={(open) => { if (!open) setRouteTarget(null); }}><DialogContent className="live-detail-dialog route-dialog">{routeTarget && <RoutePlanner key={routeTarget.id} target={routeTarget} initialOrigin={destination} />}</DialogContent></Dialog>
   </div>;
 }
