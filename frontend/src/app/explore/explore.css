@@ -134,7 +134,7 @@
 .workspace-footer > span { font-size: 22px; font-weight: 650; }
 .workspace-footer > span > span { font-size: 11px; font-weight: 400; margin-left: 18px; color: #e5d6ed; }
 .workspace-footer a { display: flex; gap: 8px; align-items: center; font-size: 12px; }
-.live-detail-dialog[data-slot="dialog-content"] { width: min(640px, calc(100% - 32px)); max-width: 640px; padding: 0; gap: 0; max-height: calc(100dvh - 40px); overflow-y: auto; border: 1px solid #9677aa; border-radius: 8px; background: #1b1621; }
+.live-detail-dialog[data-slot="dialog-content"] { display: block; width: min(640px, calc(100% - 32px)); max-width: 640px; padding: 0; gap: 0; max-height: calc(100dvh - 40px); overflow-y: auto; border: 1px solid #9677aa; border-radius: 8px; background: #1b1621; }
 .live-detail-dialog > .place-photo { aspect-ratio: 2; flex-shrink: 0; }
 .live-detail-dialog > [data-slot="dialog-close"] { background: #151019e8; color: white; border: 1px solid #a989bc; }
 .live-detail-content { padding: 28px; min-width: 0; }
